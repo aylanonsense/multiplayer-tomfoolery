@@ -4,7 +4,7 @@ local marshal = require 'marshal'
 local cs = require 'https://raw.githubusercontent.com/castle-games/share.lua/34cc93e9e35231de2ed37933d82eb7c74edfffde/cs.lua'
 
 -- We're not using a dedicated server yet
-local USE_CASTLE_CONFIG = false
+USE_CASTLE_CONFIG = true
 
 --- Creates a new client that's able to connect to a server
 function createNewClient()
@@ -43,7 +43,7 @@ function createNewClient()
       shareClient.kick()
     end,
     isConnected = function(self)
-      -- TODO
+      return shareClient.connected
     end,
     send = function(self, msg)
       shareClient.send(marshal.encode(msg))
@@ -107,6 +107,9 @@ function createNewServer()
     _send = function(self, clientId, msg)
       shareServer.sendExt(clientId, nil, nil, marshal.encode(msg))
     end,
+    _disconnect = function(self, clientId, reason)
+      shareServer.kick(clientId)
+    end,
 
     startListening = function(self)
       if USE_CASTLE_CONFIG then
@@ -120,7 +123,7 @@ function createNewServer()
       -- TODO
     end,
     isListening = function(self)
-      -- TODO
+      return server.started
     end,
     getClients = function(self)
       return self._clients
@@ -150,6 +153,7 @@ end
 function createServerSideClient(clientId, server)
   return {
     _server = server,
+    _isConnected = true,
     _receiveCallbacks = {},
     _disconnectCallbacks = {},
 
@@ -159,6 +163,7 @@ function createServerSideClient(clientId, server)
       end
     end,
     _handleDisconnect = function(self)
+      self._isConnected = false
       for _, callback in ipairs(self._disconnectCallbacks) do
         callback()
       end
@@ -166,10 +171,10 @@ function createServerSideClient(clientId, server)
 
     clientId = clientId,
     disconnect = function(self, reason)
-      -- TODO
+      self._server:_disconnect(self.clientId, reason)
     end,
     isConnected = function(self)
-      -- TODO
+      return self._isConnected
     end,
     send = function(self, msg)
       self._server:_send(self.clientId, msg)

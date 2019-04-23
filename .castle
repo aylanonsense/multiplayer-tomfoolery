@@ -1,0 +1,9 @@
+---
+main: foolishness.lua
+name: multiplayer tomfoolery
+username: bridgs
+primaryColor: FF00FF
+coverImage: cover-image.png
+description: Hacking on share.lua to get a sense of how it works.
+multiplayer:
+    - enabled: true
