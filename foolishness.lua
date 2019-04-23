@@ -1,3 +1,5 @@
+local marshal = require 'marshal'
+
 -- Grab the client/server code from share.lua
 local cs = require 'https://raw.githubusercontent.com/castle-games/share.lua/34cc93e9e35231de2ed37933d82eb7c74edfffde/cs.lua'
 
@@ -10,10 +12,22 @@ function createNewClient()
 
   local client = {
     _connectCallbacks = {},
+    _receiveCallbacks = {},
+    _disconnectCallbacks = {},
 
     _handleConnect = function(self)
       for _, callback in ipairs(self._connectCallbacks) do
         callback(client)
+      end
+    end,
+    _handleReceive = function(self, msg)
+      for _, callback in ipairs(self._receiveCallbacks) do
+        callback(msg)
+      end
+    end,
+    _handleDisconnect = function(self)
+      for _, callback in ipairs(self._disconnectCallbacks) do
+        callback()
       end
     end,
 
@@ -26,27 +40,35 @@ function createNewClient()
       end
     end,
     disconnect = function(self, reason)
-      -- TODO
+      shareClient.kick()
     end,
     isConnected = function(self)
       -- TODO
     end,
     send = function(self, msg)
-      -- TODO
+      shareClient.send(marshal.encode(msg))
     end,
     onConnect = function(self, callback)
       table.insert(self._connectCallbacks, callback)
     end,
     onReceive = function(self, callback)
-      -- TODO
+      table.insert(self._receiveCallbacks, callback)
     end,
     onDisconnect = function(self, callback)
-      -- TODO
+      table.insert(self._disconnectCallbacks, callback)
     end
   }
 
   function shareClient.connect()
     client:_handleConnect()
+  end
+
+  function shareClient.receive(msg)
+    client:_handleReceive(marshal.decode(msg))
+  end
+
+  function shareClient.disconnect()
+    client:_handleDisconnect()
   end
 
   return client
@@ -65,6 +87,25 @@ function createNewServer()
       for _, callback in ipairs(self._connectCallbacks) do
         callback(client)
       end
+    end,
+    _handleReceive = function(self, clientId, msg)
+      for _, client in ipairs(self._clients) do
+        if client.clientId == clientId then
+          client:_handleReceive(msg)
+          break
+        end
+      end
+    end,
+    _handleDisconnect = function(self, clientId)
+      for _, client in ipairs(self._clients) do
+        if client.clientId == clientId then
+          client:_handleDisconnect()
+          break
+        end
+      end
+    end,
+    _send = function(self, clientId, msg)
+      shareServer.sendExt(clientId, nil, nil, marshal.encode(msg))
     end,
 
     startListening = function(self)
@@ -94,15 +135,36 @@ function createNewServer()
     server:_handleConnect(client)
   end
 
+  function shareServer.receive(clientId, msg)
+    server:_handleReceive(clientId, marshal.decode(msg))
+  end
+
+  function shareServer.disconnect(clientId)
+    server:_handleDisconnect(clientId)
+  end
+
   return server
 end
 
 -- Creates a client on the server-side that's able to communicate with it's corresponding client-side client
 function createServerSideClient(clientId, server)
   return {
-    _clientId = clientId,
     _server = server,
+    _receiveCallbacks = {},
+    _disconnectCallbacks = {},
 
+    _handleReceive = function(self, msg)
+      for _, callback in ipairs(self._receiveCallbacks) do
+        callback(msg)
+      end
+    end,
+    _handleDisconnect = function(self)
+      for _, callback in ipairs(self._disconnectCallbacks) do
+        callback()
+      end
+    end,
+
+    clientId = clientId,
     disconnect = function(self, reason)
       -- TODO
     end,
@@ -110,13 +172,13 @@ function createServerSideClient(clientId, server)
       -- TODO
     end,
     send = function(self, msg)
-      -- TODO
+      self._server:_send(self.clientId, msg)
     end,
     onReceive = function(self, callback)
-      -- TODO
+      table.insert(self._receiveCallbacks, callback)
     end,
     onDisconnect = function(self, callback)
-      -- TODO
+      table.insert(self._disconnectCallbacks, callback)
     end
   }
 end
@@ -128,25 +190,30 @@ local client = createNewClient()
 -- Set it up so the server and client will send a couple messages to one another
 server:onConnect(function(client)
   print('SERVER: A new client connected!')
-  -- Send a message right when the client connects
-  print('SERVER: Sending first message')
-  client:send({ someText = 'I love you client!', someNumber = 1 })
   -- Disconnect when the server receives a message from the client
   client:onReceive(function(msg)
     print('SERVER: Received message from client "' .. msg.someText .. '" [' .. msg.someNumber .. ']')
-    client:disconnect('We cannot be together client!')
+    -- Send a response to the client
+    print('SERVER: Sending response')
+    client:send({ someText = 'I love you too client!', someNumber = 2 })
+  end)
+  client:onDisconnect(function(reason)
+    print('SERVER: Client disconnected "' .. (reason or 'No reason given') .. '"')
   end)
 end)
 client:onConnect(function()
   print('CLIENT: Connected to the server!')
+  -- Send a message right when the client connects
+  print('CLIENT: Sending first message')
+  client:send({ someText = 'I love you server!', someNumber = 1 })
 end)
 client:onReceive(function(msg)
   print('CLIENT: Received message from server "' .. msg.someText .. '" [' .. msg.someNumber .. ']')
-  -- Send a response to the server
-  client:send({ someText = 'I love you too server!', someNumber = 2 })
+  -- Disconnect from the server
+  client:disconnect('We cannot be together server!')
 end)
 client:onDisconnect(function(reason)
-  print('CLIENT: Disconnected from server "' .. reason .. '"')
+  print('CLIENT: Disconnected "' .. (reason or 'No reason given') .. '"')
 end)
 
 -- Kick everything off by starting the server and getting the client to connect to it
