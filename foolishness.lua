@@ -1,36 +1,123 @@
+-- Grab the client/server code from share.lua
+local cs = require 'https://raw.githubusercontent.com/castle-games/share.lua/34cc93e9e35231de2ed37933d82eb7c74edfffde/cs.lua'
+
+-- We're not using a dedicated server yet
+local USE_CASTLE_CONFIG = false
+
 --- Creates a new client that's able to connect to a server
 function createNewClient()
-  return {
-    connect = function(self) end,
-    disconnect = function(self, reason) end,
-    isConnected = function(self) end,
-    send = function(self, msg) end,
-    onConnect = function(self, callback) end,
-    onReceive = function(self, callback) end,
-    onDisconnect = function(self, callback) end
+  local shareClient = cs.client
+
+  local client = {
+    _connectCallbacks = {},
+
+    _handleConnect = function(self)
+      for _, callback in ipairs(self._connectCallbacks) do
+        callback(client)
+      end
+    end,
+
+    connect = function(self)
+      if USE_CASTLE_CONFIG then
+        shareClient.useCastleConfig()
+      else
+        shareClient.enabled = true
+        shareClient.start('127.0.0.1:22122')
+      end
+    end,
+    disconnect = function(self, reason)
+      -- TODO
+    end,
+    isConnected = function(self)
+      -- TODO
+    end,
+    send = function(self, msg)
+      -- TODO
+    end,
+    onConnect = function(self, callback)
+      table.insert(self._connectCallbacks, callback)
+    end,
+    onReceive = function(self, callback)
+      -- TODO
+    end,
+    onDisconnect = function(self, callback)
+      -- TODO
+    end
   }
+
+  function shareClient.connect()
+    client:_handleConnect()
+  end
+
+  return client
 end
 
 -- Creates a new server that's able to listen for new client connections
 function createNewServer()
-  return {
-    startListening = function(self) end,
-    stopListening = function(self) end,
-    isListening = function(self) end,
-    getClients = function(self) end,
-    onConnect = function(self, callback) end,
-    onDisconnect = function(self, callback) end
+  local shareServer = cs.server
+
+  local server = {
+    _clients = {},
+    _connectCallbacks = {},
+
+    _handleConnect = function(self, client)
+      table.insert(self._clients, client)
+      for _, callback in ipairs(self._connectCallbacks) do
+        callback(client)
+      end
+    end,
+
+    startListening = function(self)
+      if USE_CASTLE_CONFIG then
+        shareServer.useCastleConfig()
+      else
+        shareServer.enabled = true
+        shareServer.start('22122')
+      end
+    end,
+    stopListening = function(self)
+      -- TODO
+    end,
+    isListening = function(self)
+      -- TODO
+    end,
+    getClients = function(self)
+      return self._clients
+    end,
+    onConnect = function(self, callback)
+      table.insert(self._connectCallbacks, callback)
+    end
   }
+
+  function shareServer.connect(clientId)
+    local client = createServerSideClient(clientId, server)
+    server:_handleConnect(client)
+  end
+
+  return server
 end
 
 -- Creates a client on the server-side that's able to communicate with it's corresponding client-side client
-function createServerSideClient()
+function createServerSideClient(clientId, server)
   return {
-    disconnect = function(self, reason) end,
-    isConnected = function(self) end,
-    send = function(self, event, params) end,
-    onReceive = function(self, callback) end,
-    onDisconnect = function(self, callback) end
+    _clientId = clientId,
+    _server = server,
+
+    disconnect = function(self, reason)
+      -- TODO
+    end,
+    isConnected = function(self)
+      -- TODO
+    end,
+    send = function(self, msg)
+      -- TODO
+    end,
+    onReceive = function(self, callback)
+      -- TODO
+    end,
+    onDisconnect = function(self, callback)
+      -- TODO
+    end
   }
 end
 
