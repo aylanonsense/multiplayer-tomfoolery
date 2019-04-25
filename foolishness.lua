@@ -4,7 +4,7 @@ local marshal = require 'marshal'
 local cs = require 'https://raw.githubusercontent.com/castle-games/share.lua/34cc93e9e35231de2ed37933d82eb7c74edfffde/cs.lua'
 
 -- We're not using a dedicated server yet
-USE_CASTLE_CONFIG = false
+USE_CASTLE_CONFIG = true
 
 --- Creates a new client that's able to connect to a server
 function createNewClient()
