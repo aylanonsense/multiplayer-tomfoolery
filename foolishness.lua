@@ -4,7 +4,7 @@ local marshal = require 'marshal'
 local cs = require 'https://raw.githubusercontent.com/castle-games/share.lua/34cc93e9e35231de2ed37933d82eb7c74edfffde/cs.lua'
 
 -- We're not using a dedicated server yet
-USE_CASTLE_CONFIG = true
+USE_CASTLE_CONFIG = false
 
 --- Creates a new client that's able to connect to a server
 function createNewClient()
@@ -224,3 +224,8 @@ end)
 -- Kick everything off by starting the server and getting the client to connect to it
 server:startListening()
 client:connect()
+
+local doIt = love.update
+function love.update(dt)
+  doIt(dt)
+end
