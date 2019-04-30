@@ -222,8 +222,12 @@ client:onDisconnect(function(reason)
 end)
 
 -- Kick everything off by starting the server and getting the client to connect to it
-server:startListening()
-client:connect()
+function cs.server.load()
+  server:startListening()
+end
+function cs.client.load()
+  client:connect()
+end
 
 local doIt = love.update
 function love.update(dt)
